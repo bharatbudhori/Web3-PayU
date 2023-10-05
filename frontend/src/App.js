@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import "./App.css";
 import logo from "./logo.png";
 import { Layout, Button } from "antd";
@@ -8,25 +9,21 @@ import RecentActivity from "./componets/RecentActivity";
 import { useConnect, useAccount, useDisconnect } from "wagmi";
 import { MetaMaskConnector } from "wagmi/connectors/metaMask";
 import axios from "axios";
-import { useEffect, useState } from "react";
 
 const { Header, Content } = Layout;
 
 function App() {
-    const [name, setName] = useState("...");
-    const [balance, setBalance] = useState("...");
-    const [dollars, setDollars] = useState("...");
-    const [history, setHistory] = useState(null);
-    const [request, setRequest] = useState({
-        1: [0],
-        0: [0],
-    });
-
     const { address, isConnected } = useAccount();
     const { disconnect } = useDisconnect();
     const { connect } = useConnect({
         connector: new MetaMaskConnector(),
     });
+
+    const [name, setName] = useState("...");
+    const [balance, setBalance] = useState("...");
+    const [dollars, setDollars] = useState("...");
+    const [history, setHistory] = useState(null);
+    const [requests, setRequests] = useState({ 1: [0], 0: [] });
 
     function disconnectAndSetNull() {
         disconnect();
@@ -34,32 +31,23 @@ function App() {
         setBalance("...");
         setDollars("...");
         setHistory(null);
-        setRequest({
-            1: [0],
-            0: [0],
-        });
+        setRequests({ 1: [0], 0: [] });
     }
 
     async function getNameAndBalance() {
-        const res = await axios.get(
-            `http://localhost:3001/getNameAndBalance/`,
-            {
-                params: {
-                    userAddress: address,
-                },
-            }
-        );
+        const res = await axios.get(`http://localhost:3001/getNameAndBalance`, {
+            params: { userAddress: address },
+        });
 
         const response = res.data;
-        console.log(response);
-
+        console.log(response.requests);
         if (response.name[1]) {
             setName(response.name[0]);
         }
-        setBalance(response.balance);
-        setDollars(response.dollars);
+        setBalance(String(response.balance));
+        setDollars(String(response.dollars));
         setHistory(response.history);
-        setRequest(response.request);
+        setRequests(response.requests);
     }
 
     useEffect(() => {
@@ -90,16 +78,18 @@ function App() {
                             </>
                         )}
                     </div>
-
                     {isConnected ? (
-                        <Button
-                            type={"primary"}
-                            onClick={() => disconnectAndSetNull()}
-                        >
+                        <Button type={"primary"} onClick={disconnectAndSetNull}>
                             Disconnect Wallet
                         </Button>
                     ) : (
-                        <Button type={"primary"} onClick={() => connect()}>
+                        <Button
+                            type={"primary"}
+                            onClick={() => {
+                                console.log(requests);
+                                connect();
+                            }}
+                        >
                             Connect Wallet
                         </Button>
                     )}
@@ -108,16 +98,23 @@ function App() {
                     {isConnected ? (
                         <>
                             <div className="firstColumn">
-                                <CurrentBalance />
-                                <RequestAndPay />
-                                <AccountDetails />
+                                <CurrentBalance dollars={dollars} />
+                                <RequestAndPay
+                                    requests={requests}
+                                    getNameAndBalance={getNameAndBalance}
+                                />
+                                <AccountDetails
+                                    address={address}
+                                    name={name}
+                                    balance={balance}
+                                />
                             </div>
                             <div className="secondColumn">
-                                <RecentActivity />
+                                <RecentActivity history={history} />
                             </div>
                         </>
                     ) : (
-                        <div>Please Login.....</div>
+                        <div>Please Login</div>
                     )}
                 </Content>
             </Layout>
